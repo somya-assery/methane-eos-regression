@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Learning an equation of state for methane from real measurements</title>
+<style>
+:root{--bg:#eef2f4;--ink:#12212b;--mut:#51626d;--line:#c6d1d8;--acc:#0a6c74;--card:#fff}
+@media(prefers-color-scheme:dark){:root{--bg:#10181d;--ink:#e6edf1;--mut:#9fb0ba;--line:#2a3943;--acc:#4fc3cc;--card:#17222a}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,sans-serif}
+main{max-width:820px;margin:0 auto;padding:28px 18px 60px}
+h1,h2{font-family:Georgia,serif;line-height:1.2}h1{font-size:clamp(1.7rem,4.5vw,2.5rem);margin:.2em 0 .3em}h2{font-size:1.4rem;margin:2.2em 0 .5em}
+p,li{max-width:70ch}.lead{color:var(--mut);font-size:1.05rem}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin:18px 0}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0}
+button{font:inherit;padding:6px 12px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:6px;cursor:pointer}
+button[aria-pressed=true]{background:var(--acc);color:#fff;border-color:var(--acc)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+label{display:flex;gap:10px;align-items:center;flex-wrap:wrap}input[type=range]{flex:1;min-width:160px;accent-color:var(--acc)}
+svg{width:100%;height:auto;display:block}.axis{stroke:var(--line)}text{fill:var(--mut);font-size:12px}
+.tbl{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:.92rem}th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right}th:first-child,td:first-child{text-align:left}
+.key{display:flex;flex-wrap:wrap;gap:12px;font-size:.88rem;color:var(--mut)}.key i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px}
+code{font-size:.9em}small{color:var(--mut)}
+</style></head><body><main>
+<h1>Learning an equation of state for methane from real measurements</h1>
+<p class="lead">ES 335 project by Somya Assery (25110303). Can simple regression on temperature and density predict how real methane behaves, when it is tested on measurements it has never seen?</p>
+
+<div class="panel" aria-label="Model explorer">
+<div class="row" role="group" aria-label="Model"><button data-m="lasso" aria-pressed="true">Lasso</button><button data-m="ridge" aria-pressed="false">Ridge</button><button data-m="bayesian ridge" aria-pressed="false">Bayesian ridge</button><button data-m="ARD" aria-pressed="false">ARD</button></div>
+<label id="lblA">Terms kept by lasso: <b id="nTerms"></b><input id="alpha" type="range" min="0" max="13" step="1" aria-label="Lasso strength"></label>
+<label>Temperature: <b id="tval"></b> K<input id="temp" type="range" min="95" max="450" step="1" value="298" aria-label="Temperature in kelvin"></label>
+<svg id="plot" viewBox="0 0 760 360" role="img" aria-label="Compressibility factor versus density"></svg>
+<div class="key" id="key"></div>
+<p><small>Dots are real measurements within 4 K of the chosen temperature. The line is the model. Dashed parts are extrapolation, where no data lies within 40 K.</small></p>
+<div class="tbl"><table id="errtab"></table></div>
+</div>
+
+<h2>The question</h2>
+<p>One row is one measured state of pure methane: temperature <i>T</i>, molar density ρ and pressure <i>P</i>. The model sees only <i>T</i> and ρ and predicts the compressibility factor <i>Z = P/(ρRT)</i>, which says how far methane is from an ideal gas. A prediction would be made when <i>T</i> and ρ are known, as in a process calculation. Each model is judged only against the raw measurements.</p>
+
+<h2>Data</h2>
+<p>832 usable measurements from four published sources: Cristancho et al. 2010 (83 points, 298–450 K, up to 188 MPa; NIST ThermoML), Douslin et al. 1964 (171), Goodwin &amp; Prydz 1972 (300, cold liquid, 91–245 K) and Vennix 1965 thesis (279, 168–275 K), the last three tabulated in Goodwin &amp; Prydz, J. Res. NBS 76, 81. Labs differ in units, temperature scales and uncertainty, and rows on one isotherm are nearly copies of each other, so the effective sample is much smaller than 832.</p>
+
+<h2>Preprocessing</h2>
+<p>All units were converted to SI. Three rows were excluded: the critical point and triple point rows in Goodwin &amp; Prydz, and one Vennix point whose pressure jump is out of line with its isochore. Features were scaled using training data only. The 67 rows within 10 K of the critical temperature (all from Vennix) are reported separately.</p>
+
+<h2>Baselines and methods</h2>
+<p>Baselines: the ideal gas (<i>Z</i> = 1) and a few-term virial fit. Candidates: ridge, lasso, Bayesian ridge and ARD regression on 36 terms δ<sup>k</sup>τ<sup>t</sup>, where δ is density over critical density and τ is critical temperature over temperature. <i>Z</i> is linear in the coefficients, so this is ordinary regression with correlated features. Lasso and ARD can switch terms off, which gives a compact equation.</p>
+
+<h2>Evaluation</h2>
+<p>The main test hides one whole lab, trains on the other three, and repeats for each lab. Regularization was tuned only on labs inside the training set. Additional tests hold out whole isotherms or isochores, and train below 40 MPa to test above it. The metric is the median percent error in <i>Z</i>, because an average hides regions where a model fails.</p>
+
+<h2>Results</h2>
+<div class="tbl"><table id="lotab"></table></div>
+<p id="nearp"></p>
+<p>Both regularized models beat the baselines by a large margin. A 15-term lasso is close to the 36-term ridge on three labs, so about half the terms are redundant. Moving the slider above shows where accuracy collapses: below about 7 terms.</p>
+
+<h2>Errors</h2>
+<p>The cold liquid of Goodwin &amp; Prydz is the hardest case: when it is hidden, no remaining data lies below 168 K and polynomial models extrapolate badly. Its largest percent errors come from low-pressure points where <i>Z</i> is close to zero. Whole-lab errors are much larger than errors from hiding a single isotherm, because neighbouring isotherms give away the answer.</p>
+
+<h2>Limitations</h2>
+<ul><li>Only four sources, two from the 1960s and one a thesis; only one lab (Vennix) reaches the critical region, so that result is not cross-checked.</li>
+<li>Bayesian 95% intervals were overconfident on unseen labs (23–71% coverage in most cases), so they are not shown as error bars.</li>
+<li>The reference equation of state of Setzmann &amp; Wagner (1991) was fitted to much of this data. This project does not compare against it and makes no claim beyond pure methane or the measured ranges.</li>
+<li>Prediction is not proof of physical law; the fitted terms are an empirical summary.</li></ul>
+
+<h2>Conclusion</h2>
+<p>With a few hundred real measurements, simple regularized regression predicts methane's compressibility to about 0.2–2% on unseen labs away from extreme conditions. It fails when asked to extrapolate to conditions no training lab covered.</p>
+
+<h2>Reproduce</h2>
+<ol><li>Open the repository and the notebook in <code>notebooks/</code> in Google Colab.</li>
+<li>Run all cells. The first cell clones the repository, and the data are in <code>data/raw/</code> (four CSV files).</li>
+<li>Run <code>export_for_website.py</code> to regenerate <code>docs/model.json</code>, which this page reads.</li></ol>
+<p><small>Sources: Cristancho et al., J. Chem. Eng. Data 55, 826 (2010); Douslin et al., J. Chem. Eng. Data 9, 358 (1964); Goodwin &amp; Prydz, J. Res. NBS 76A, 81 (1972); Vennix, PhD thesis, Rice University (1965). AI use: Claude assisted with planning, code and this page.</small></p>
+</main>
+<script>
+const COL=["#0a6c74","#b7791f","#2563c9","#b02a6b"];let M,model="lasso";
+fetch("model.json").then(r=>r.json()).then(d=>{M=d;init()}).catch(()=>{document.getElementById("key").textContent="Could not load model.json"});
+const $=id=>document.getElementById(id);
+function coefs(){if(model=="lasso"){const p=M.path[+$("alpha").value];return{c:p.coef,b:p.b,loso:p.loso}}const m=M.models[model];return{c:m.coef,b:m.b,loso:M.loso[model]}}
+function Zp(rho,T,k){const d=rho*1000/M.RHOC,tau=M.TC/T;let z=1+k.b,i=0;for(let a=1;a<=6;a++)for(let t=0;t<6;t++){z+=k.c[i]*(Math.pow(d,a)*Math.pow(tau,t)-M.scaler.mean[i])/M.scaler.scale[i];i++}return z}
+function draw(){const T=+$("temp").value,k=coefs(),P=M.points;$("tval").textContent=T;
+let pts=[],near=[];P.T.forEach((t,i)=>{if(Math.abs(t-T)<=4)pts.push(i);if(Math.abs(t-T)<=40)near.push(P.rho[i])});
+const lo=near.length?Math.min(...near):0,hi=near.length?Math.max(...near):0;
+const xs=[],ys=[];for(let r=0;r<=29;r+=.25){xs.push(r);ys.push(Zp(r,T,k))}
+const zs=pts.map(i=>P.Z[i]).concat(ys.filter(v=>v>-1&&v<5));let y0=Math.min(0,...zs),y1=Math.max(1.2,...pts.map(i=>P.Z[i]),1.05);if(!isFinite(y0))y0=0;y1=Math.min(y1*1.05,5);
+const X=r=>50+r/29*690,Y=z=>320-(Math.max(y0,Math.min(y1,z))-y0)/(y1-y0)*300;let s=`<line class=axis x1=50 y1=320 x2=740 y2=320 /><line class=axis x1=50 y1=20 x2=50 y2=320 />`;
+for(let r=0;r<=28;r+=7)s+=`<text x=${X(r)} y=342 text-anchor=middle>${r}</text>`;s+=`<text x=395 y=358 text-anchor=middle>density (mol/L)</text>`;
+for(let i=0;i<=4;i++){const z=y0+(y1-y0)*i/4;s+=`<text x=44 y=${Y(z)+4} text-anchor=end>${z.toFixed(2)}</text><line class=axis x1=50 x2=740 y1=${Y(z)} y2=${Y(z)} opacity=.3 />`}
+s+=`<text x=14 y=170 transform="rotate(-90 14 170)" text-anchor=middle>Z</text>`;
+let seg=[],cur=[],ex=null;xs.forEach((r,j)=>{const inn=r>=lo&&r<=hi&&near.length>0;if(ex!==null&&inn!==ex){seg.push([cur,ex]);cur=[cur[cur.length-1]]}ex=inn;cur.push([r,ys[j]])});seg.push([cur,ex]);
+seg.forEach(([c,inn])=>{const dd=c.filter(q=>q[1]>-1&&q[1]<6).map((q,j)=>(j?"L":"M")+X(q[0]).toFixed(1)+" "+Y(q[1]).toFixed(1)).join("");s+=`<path d="${dd}" fill=none stroke="var(--ink)" stroke-width=2 ${inn?"":'stroke-dasharray="5 4"'} />`});
+pts.forEach(i=>{s+=`<circle cx=${X(P.rho[i])} cy=${Y(P.Z[i])} r=4.5 fill="${COL[P.s[i]]}" stroke="#fff" stroke-width=1 />`});
+if(!pts.length)s+=`<text x=395 y=170 text-anchor=middle>No measurements within 4 K of ${T} K. The line is pure extrapolation.</text>`;
+$("plot").innerHTML=s;$("key").innerHTML=M.sources.map((n,i)=>`<span><i style="background:${COL[i]}"></i>${n}</span>`).join("");
+$("nTerms").textContent=model=="lasso"?M.path[+$("alpha").value].n+" of 36":M.models[model].n+" of 36";
+$("lblA").style.display=model=="lasso"?"flex":"none";
+let h="<tr><th>Held-out lab, median % error in Z</th>"+M.sources.map(n=>`<th>${n}</th>`).join("")+"</tr>";
+const row=(n,o)=>`<tr><td>${n}</td>${M.sources.map(q=>`<td>${o[q].toFixed(2)}</td>`).join("")}</tr>`;
+h+=row("This model",k.loso)+row("Ideal gas",M.loso["ideal gas"])+row("Virial fit",M.loso["virial OLS"]);$("errtab").innerHTML=h}
+function init(){$("alpha").value=5;$("temp").addEventListener("input",draw);$("alpha").addEventListener("input",draw);
+document.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>{model=b.dataset.m;document.querySelectorAll("[data-m]").forEach(x=>x.setAttribute("aria-pressed",x==b));draw()});
+let h="<tr><th>Median % error in Z</th>"+M.sources.map(n=>`<th>${n}</th>`).join("")+"</tr>";
+Object.keys(M.loso).forEach(m=>{h+=`<tr><td>${m}</td>${M.sources.map(q=>`<td>${M.loso[m][q].toFixed(2)}</td>`).join("")}</tr>`});$("lotab").innerHTML=h;
+$("nearp").innerHTML=`Near the critical point (${M.n_near} Vennix rows, trained without any near-critical data): ideal gas ${M.near["ideal gas"].toFixed(0)}%, virial fit ${M.near["virial OLS"].toFixed(0)}%, lasso ${M.near.lasso.toFixed(1)}%, ridge ${M.near.ridge.toFixed(1)}% median error.`;draw()}
+</script></body></html>
