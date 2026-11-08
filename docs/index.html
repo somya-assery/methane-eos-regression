@@ -54,7 +54,7 @@ code{background:var(--bg);padding:1px 5px;border-radius:4px}footer{text-align:ce
 <tr><td>Bayesian ridge, ARD</td><td style="text-align:left">Give predictive uncertainty</td></tr></table></div>
 <p>The <b>final compact model</b> is a lasso with α = 2×10⁻⁵ that keeps 15 of 36 terms:</p>
 <div id="chips"></div>
-<p class="n">Term <code>dK_tT</code> means δ<sup>K</sup>τ<sup>T</sup>. Coefficients act on standardised features and are stored in <code>model.json</code>.</p></section>
+<p class="n">Each chip is one term of the model, a power of reduced density δ (density ÷ critical density) times a power of τ (critical temperature ÷ temperature). For example δ² is density squared, and a term with no τ has τ⁰ = 1. Coefficients act on standardised features and are stored in <code>model.json</code>.</p></section>
 
 <section id="explore"><h2>4. Interactive explorer</h2>
 <p>Choose a model and a temperature. Dots are real measurements within ±5 K of that temperature; the line is the model's Z. Move the lasso slider to trade accuracy for simplicity.</p>
@@ -153,7 +153,7 @@ function init(){const S=M.sources,P=M.points,leg=S.map((s,k)=>"<span><i style='b
 $("lg0").innerHTML=leg;$("lg1").innerHTML=leg;
 const reg=["gas / supercritical","liquid / dense fluid","cold liquid","gas / supercritical"],cnt=S.map((s,k)=>P.s.filter(x=>x===k).length);
 $("tdata").innerHTML="<tr><th>Source</th><th>Region</th><th>Points used</th></tr>"+S.map((s,k)=>"<tr><td>"+s+"</td><td style='text-align:right'>"+({"Cristancho 2010":"gas / supercritical (high P)","Douslin 1964":"gas / supercritical","Goodwin & Prydz 1972":"cold liquid","Vennix 1965":"liquid / dense fluid"})[s]+"</td><td>"+cnt[k]+"</td></tr>").join("");
-$("chips").innerHTML=["d1_t1","d2_t0","d6_t1","d6_t0","d1_t0","d3_t2","d6_t2","d1_t2","d1_t3","d1_t4","d6_t3","d6_t4","d4_t1","d3_t1","d6_t5"].map(x=>"<span class='chip'>"+x+"</span>").join("");
+$("chips").innerHTML=["d1_t1","d2_t0","d6_t1","d6_t0","d1_t0","d3_t2","d6_t2","d1_t2","d1_t3","d1_t4","d6_t3","d6_t4","d4_t1","d3_t1","d6_t5"].map(x=>{const[k,t]=x.match(/\d/g),p=(s,e)=>e==="1"?s:s+"<sup>"+e+"</sup>";return"<span class='chip'>"+p("δ",k)+(t==="0"?"":p("τ",t))+"</span>"}).join("");
 const cs=S.map((s,k)=>({c:SC[k],r:2.5,p:P.rho.map((r,i)=>P.s[i]===k?[r,P.T[i]]:null).filter(Boolean)}));
 cs.push({c:"#000",ring:1,r:5,p:P.rho.map((r,i)=>P.near[i]?[r,P.T[i]]:null).filter(Boolean)});
 window.drawCov=()=>plot("cov",{x0:0,x1:30,y0:80,y1:460,xt:[0,5,10,15,20,25,30],yt:[100,200,300,400],xl:"density (mol/L)",yl:"T (K)",s:cs});
